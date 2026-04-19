@@ -172,7 +172,7 @@
     const createInitialGrid = () => Array(24).fill(null);
 
     const createCoverData = () => ({ schoolName: '秋田県立秋田きらり支援学校 高等部', title: '', subtitle: '', currentGrade: '', coverImageUrl: null, enterYear: '', enterMonth: '', graduateYear: '', graduateMonth: '', themeColor: DEFAULT_COLORS.cover, updatedAt: null });
-    const createTargetData = (label = '目標（高１・１学期）') => ({ tabLabel: label, title: '夢の実現に向けて～目標設定シート～', term: '', name: '', q1: '', q2: '', q3: [{ id: generateId(), text: '' }], q4: '', q5: '', themeColor: DEFAULT_COLORS.target1, fontSizes: {}, updatedAt: null });
+    const createTargetData = (label = '目標（高１・１学期）') => ({ tabLabel: label, title: '夢の実現に向けて～目標設定シート～', term: '一学期', name: '', q1: '', q2: '', q3: [{ id: generateId(), text: '' }], q4: '', q5: '', themeColor: DEFAULT_COLORS.target1, fontSizes: {}, updatedAt: null });
     const createTrainingData = (label = '実習（高１・６月）') => ({ tabLabel: label, title: '実習記録', companyName: '', period: '', startDate: '', endDate: '', daysCount: '', activities: '', goals: [{ id: Date.now(), text: '', evaluation: 0 }], comment: '', reflection: '', themeColor: DEFAULT_COLORS.training1, fontSizeMode: 'medium', fontSizes: {}, updatedAt: null });
     const createAwardsData = (label = '受賞歴①') => ({ tabLabel: label, records: [{ id: Date.now(), date: '', title: '', description: '' }], themeColor: DEFAULT_COLORS.docs1, updatedAt: null });
     const createInitialData = (defaultColor) => ({ basicStats: JSON.parse(JSON.stringify(INITIAL_BASIC_STATS)), abilitiesGrid: createInitialGrid(), avatarUrl: null, themeColor: defaultColor, profile: { name: '', team: '', country: 'Japan', number: '', company: '', role: '', classGoal: '', years: '', stars: '' }, fontSizeMode: 'medium', fontSizes: { stats: 'xlarge', profileName: 'medium', abilities: 'large' }, updatedAt: null });
@@ -519,7 +519,7 @@
             <TargetListField 
               field="q3" 
               num="③" 
-              title={isExporting ? <>{data.term || '　　'}の目標</> : <span className="flex items-center gap-1"><span onClick={(e) => { e.stopPropagation(); openTextInput('学期', data.term, v => onUpdate('term', v)); }} className="bg-transparent border-b-2 border-gray-500 cursor-pointer hover:bg-gray-50/50 min-w-[3rem] text-center text-gray-900 font-bold px-1">{data.term || '　　'}</span><span>の目標</span></span>} 
+              title={isExporting ? <>{data.term || '一学期'}の目標</> : <span className="flex items-center gap-1"><span onClick={(e) => { e.stopPropagation(); openTextInput('学期', data.term, v => onUpdate('term', v)); }} className="bg-transparent border-b-2 border-gray-500 cursor-pointer hover:bg-gray-50/50 min-w-[3rem] text-center text-gray-900 font-bold px-1">{data.term || '一学期'}</span><span>の目標</span></span>} 
               bgColor="bg-white" 
               items={Array.isArray(data.q3) ? data.q3 : [{id: generateId(), text: data.q3 || ''}]} 
               onItemsChange={(v) => onUpdate('q3', v)} 
@@ -542,7 +542,7 @@
                 />
               }
             />
-            <TargetField field="q5" num="⑤" title={isExporting ? <>{data.term || '　　'}の振り返りと、これからがんばりたいこと</> : <span className="flex items-center gap-1"><span onClick={(e) => { e.stopPropagation(); openTextInput('学期', data.term, v => onUpdate('term', v)); }} className="bg-transparent border-b-2 border-gray-500 cursor-pointer hover:bg-gray-50/50 min-w-[3rem] text-center text-gray-900 font-bold px-1">{data.term || '　　'}</span><span>の振り返りと、これからがんばりたいこと</span></span>} bgColor="bg-orange-300" value={data.q5} onClick={() => openTextInput('振り返りとこれからがんばりたいこと', data.q5, v => onUpdate('q5', v), true)} isExporting={isExporting} fontSizeMode={getFontSize('q5')} onFontSizeChange={onFontSizeChange} />
+            <TargetField field="q5" num="⑤" title={isExporting ? <>{data.term || '一学期'}の振り返りと、これからがんばりたいこと</> : <span className="flex items-center gap-1"><span onClick={(e) => { e.stopPropagation(); openTextInput('学期', data.term, v => onUpdate('term', v)); }} className="bg-transparent border-b-2 border-gray-500 cursor-pointer hover:bg-gray-50/50 min-w-[3rem] text-center text-gray-900 font-bold px-1">{data.term || '一学期'}</span><span>の振り返りと、これからがんばりたいこと</span></span>} bgColor="bg-orange-300" value={data.q5} onClick={() => openTextInput('振り返りとこれからがんばりたいこと', data.q5, v => onUpdate('q5', v), true)} isExporting={isExporting} fontSizeMode={getFontSize('q5')} onFontSizeChange={onFontSizeChange} />
           </div>
         </div>
       );
@@ -1553,7 +1553,7 @@
 以下の生徒の目標設定シートや受賞歴、プロフィールの変遷、過去の目標や実習の記録を参考にして、生徒の考えをほめつつ、具体的なアドバイスを書いてください。
 ※生徒の氏名や写真は送信されていないため、内容から成長を読み取ってください。
 「${targetGrade}」という時期・学年であることをふまえた、論理的で実践的なアドバイスを（「〜ですね」「〜してみましょう」など）、親しみやすい口調で、150文字くらいでまとめてください。
-特に、【将来どんな生活をしたいか】と【${currentData.term || '今学期'}の目標】をつなげるために、どのような視点や行動が必要かについてアドバイスしてください。
+特に、【将来どんな生活をしたいか】と【${currentData.term || '一学期'}の目標】をつなげるために、どのような視点や行動が必要かについてアドバイスしてください。
 プロフィールの「好きなこと・得意なこと・自慢したいこと」「苦手なこと・手伝ってほしいこと」は、目標と関連性が高い場合のみ活用し、無理に繋げないでください。学年ごとの成長や変化も考慮してください。
 一番最後に、生徒への応援メッセージを入れてください。
 
@@ -1561,9 +1561,9 @@
 【過去の目標と振り返り】${pastTargets || '特になし'}
 【過去の実習記録】${pastTrainings || '特になし'}
 【将来どんな生活をしたいか】\n${currentData.q1 || 'かいていない'}
-【${currentData.term || '今学期'}の目標】\n${q3Text || 'かいていない'}
+【${currentData.term || '一学期'}の目標】\n${q3Text || 'かいていない'}
 【目標達成に向けてがんばること】\n${currentData.q4 || 'かいていない'}
-【${currentData.term || '今学期'}の振り返りと、これからがんばりたいこと】\n${currentData.q5 || 'かいていない'}`;
+【${currentData.term || '一学期'}の振り返りと、これからがんばりたいこと】\n${currentData.q5 || 'かいていない'}`;
 
         if(copyToClipboard(prompt)) {
           setPromptCopiedModal({ isOpen: true, text: prompt });
@@ -1592,7 +1592,7 @@
 【プロフィールの変遷】\n${profHistory}\n【受賞歴】${awardsText || '特になし'}
 【過去の目標と振り返り】${pastTargets || '特になし'}
 【過去の実習記録】${pastTrainings || '特になし'}
-【これまでの入力】\n・将来どんな生活をしたいか:\n${currentData.q1 || 'かいていない'}\n・${currentData.term || '今学期'}の目標:\n${q3Text || 'かいていない'}`;
+【これまでの入力】\n・将来どんな生活をしたいか:\n${currentData.q1 || 'かいていない'}\n・${currentData.term || '一学期'}の目標:\n${q3Text || 'かいていない'}`;
 
         if(copyToClipboard(prompt)) {
           setPromptCopiedModal({ isOpen: true, text: prompt });
