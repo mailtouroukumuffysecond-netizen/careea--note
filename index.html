@@ -171,7 +171,7 @@
 
     const createInitialGrid = () => Array(24).fill(null);
 
-    const createCoverData = () => ({ schoolName: '', title: 'キャリアノート', subtitle: '名前', currentGrade: '１', coverImageUrl: null, enterYear: '令和　　', enterMonth: '４', graduateYear: '令和　　', graduateMonth: '３', themeColor: DEFAULT_COLORS.cover, updatedAt: null });
+    const createCoverData = () => ({ schoolName: '', title: 'キャリアノート', subtitle: '', currentGrade: '', coverImageUrl: null, enterYear: '', enterMonth: '', graduateYear: '', graduateMonth: '', themeColor: DEFAULT_COLORS.cover, updatedAt: null });
     const createTargetData = (label = '目標（高１・１学期）') => ({ tabLabel: label, title: '夢の実現に向けて～目標設定シート～', term: '一学期', name: '', q1: '', q2: '', q3: [{ id: generateId(), text: '' }], q4: '', q5: '', themeColor: DEFAULT_COLORS.target1, fontSizes: {}, updatedAt: null });
     const createTrainingData = (label = '実習（高１・６月）') => ({ tabLabel: label, title: '実習記録', companyName: '', period: '', startDate: '', endDate: '', daysCount: '', activities: '', goals: [{ id: Date.now(), text: '', evaluation: 0 }], comment: '', reflection: '', themeColor: DEFAULT_COLORS.training1, fontSizeMode: 'medium', fontSizes: {}, updatedAt: null });
     const createAwardsData = (label = '受賞歴①') => ({ tabLabel: label, records: [{ id: Date.now(), date: '', title: '', description: '' }], themeColor: DEFAULT_COLORS.docs1, updatedAt: null });
@@ -1104,12 +1104,42 @@
       const [backupStep, setBackupStep] = useState(0);
 
       const [promptCopiedModal, setPromptCopiedModal] = useState({ isOpen: false, text: '' });
+      const [aiAuthModal, setAiAuthModal] = useState({ isOpen: false, pendingAction: null, password: '', error: '' });
 
       const currentData = allData[activeTab] || {};
       const basicStats = currentData.basicStats || [];
       const abilitiesGrid = currentData.abilitiesGrid || [];
       const avatarUrl = currentData.avatarUrl || null;
       const profile = currentData.profile || {};
+
+      const checkAiAuth = () => {
+        const expiresAt = localStorage.getItem('aiAuthExpiresAt');
+        if (expiresAt && Date.now() < parseInt(expiresAt, 10)) {
+          return true;
+        }
+        return false;
+      };
+
+      const requireAiAuth = (action) => {
+        if (checkAiAuth()) {
+          action();
+        } else {
+          setAiAuthModal({ isOpen: true, pendingAction: action, password: '', error: '' });
+        }
+      };
+
+      const handleAiAuthSubmit = () => {
+        if (aiAuthModal.password === 'kirari') {
+          const expiresAt = Date.now() + 60 * 60 * 1000;
+          localStorage.setItem('aiAuthExpiresAt', expiresAt.toString());
+          if (aiAuthModal.pendingAction) {
+            aiAuthModal.pendingAction();
+          }
+          setAiAuthModal({ isOpen: false, pendingAction: null, password: '', error: '' });
+        } else {
+          setAiAuthModal(prev => ({ ...prev, error: 'パスワードが違います' }));
+        }
+      };
 
       const getFontSize = (field) => {
         if (currentData.fontSizes?.[field]) return currentData.fontSizes[field];
@@ -1539,7 +1569,7 @@
         return 'かいていない';
       };
 
-      const handleCopyAdvicePrompt = () => {
+      const handleCopyAdvicePrompt = () => requireAiAuth(() => {
         const targetGrade = currentData.tabLabel || '高校生';
         const maxGrade = getCoverGrade();
         
@@ -1568,9 +1598,9 @@
         if(copyToClipboard(prompt)) {
           setPromptCopiedModal({ isOpen: true, text: prompt });
         }
-      };
+      });
 
-      const handleCopyActionPlanPrompt = () => {
+      const handleCopyActionPlanPrompt = () => requireAiAuth(() => {
         const targetGrade = currentData.tabLabel || '高校生';
         const maxGrade = getCoverGrade();
         
@@ -1597,9 +1627,9 @@
         if(copyToClipboard(prompt)) {
           setPromptCopiedModal({ isOpen: true, text: prompt });
         }
-      };
+      });
 
-      const handleCopySkillsAdvicePrompt = () => {
+      const handleCopySkillsAdvicePrompt = () => requireAiAuth(() => {
         const maxInputGrade = getCoverGrade();
         
         let dreams = "";
@@ -1668,7 +1698,7 @@ ${statsText || '特になし'}
         if(copyToClipboard(prompt)) {
           setPromptCopiedModal({ isOpen: true, text: prompt });
         }
-      };
+      });
 
       const handleSavePDF = async () => {
         if (!window.html2canvas || !window.jspdf || !captureRef.current) { alert('PDF作成の準備ができていません。'); return; }
@@ -2443,6 +2473,36 @@ ${statsText || '特になし'}
                   )}
                 </div>
               </div>
+
+              {/* AI機能パスワード入力モーダル */}
+              {aiAuthModal.isOpen && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-black/50" onClick={() => setAiAuthModal({ isOpen: false, pendingAction: null, password: '', error: '' })}></div>
+                  <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm flex flex-col border-[4px] border-blue-400">
+                    <h2 className="text-xl font-bold mb-4 text-blue-800">パスワード入力</h2>
+                    <p className="text-sm text-gray-600 mb-4">AI先生に聞くためのパスワードを入力してください。</p>
+                    <input
+                      type="password"
+                      value={aiAuthModal.password}
+                      onChange={(e) => setAiAuthModal(prev => ({ ...prev, password: e.target.value, error: '' }))}
+                      className={`w-full border-2 rounded-lg p-3 outline-none text-lg font-bold text-gray-800 ${aiAuthModal.error ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500'}`}
+                      placeholder="パスワード"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                          e.preventDefault();
+                          handleAiAuthSubmit();
+                        }
+                      }}
+                    />
+                    {aiAuthModal.error && <p className="text-red-500 text-sm font-bold mt-2">{aiAuthModal.error}</p>}
+                    <div className="mt-6 flex justify-end gap-3">
+                      <button type="button" onClick={() => setAiAuthModal({ isOpen: false, pendingAction: null, password: '', error: '' })} className="px-5 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-full font-bold">キャンセル</button>
+                      <button type="button" onClick={handleAiAuthSubmit} disabled={!aiAuthModal.password} className="px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-full font-bold disabled:opacity-50">確認</button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* 能力選択モーダル */}
               {isModalOpen && (
