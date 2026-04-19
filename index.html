@@ -1041,6 +1041,7 @@
       const [isTabMenuOpen, setIsTabMenuOpen] = useState(false);
       const [isAddSheetMenuOpen, setIsAddSheetMenuOpen] = useState(false);
       const tabMenuRef = useRef(null); const colorMenuRef = useRef(null); const addSheetMenuRef = useRef(null);
+      const restoreMenuRef = useRef(null); const backupMenuRef = useRef(null);
       const [isColorPaletteOpen, setIsColorPaletteOpen] = useState(false);
       const [isClearModalOpen, setIsClearModalOpen] = useState(false);
       const [isBulkExportModalOpen, setIsBulkExportModalOpen] = useState(false);
@@ -1053,6 +1054,10 @@
       const [periodModal, setPeriodModal] = useState({ isOpen: false, startY: '', startM: '', startD: '', endY: '', endM: '', endD: '', days: '', calY: new Date().getFullYear(), calM: new Date().getMonth() + 1, activeInput: 'start', lastCalcDates: '', tempDay: null });
       const [isDataManageModalOpen, setIsDataManageModalOpen] = useState(false);
       const [importText, setImportText] = useState('');
+      const [isRestoreMenuOpen, setIsRestoreMenuOpen] = useState(false);
+      const [isBackupMenuOpen, setIsBackupMenuOpen] = useState(false);
+      const [isTextRestoreModalOpen, setIsTextRestoreModalOpen] = useState(false);
+      const [isTextBackupModalOpen, setIsTextBackupModalOpen] = useState(false);
       const [openMenuGroups, setOpenMenuGroups] = useState({ profile: true, target: false, training: false, docs: false });
       const [pdfMenuOpen, setPdfMenuOpen] = useState({ profile: true, docs: true, target: true, training: true });
       const [menuDraggedItem, setMenuDraggedItem] = useState(null);
@@ -1187,7 +1192,7 @@
           const importedData = JSON.parse(importText);
           if (importedData && importedData.cover && importedData.high1) {
             setAllData(prev => safeMergeData(prev, importedData));
-            setIsDataManageModalOpen(false);
+            setIsTextRestoreModalOpen(false);
             setImportText('');
             setSyncStatus('✅ 読み込み完了');
             setTimeout(() => setSyncStatus('☁️ 最新'), 3000);
@@ -1199,20 +1204,23 @@
         }
       };
 
+      const handleTextBackup = () => {
+        const dataStr = JSON.stringify(allData);
+        setImportText(dataStr);
+        setIsTextBackupModalOpen(true);
+        const isoDate = new Date().toISOString();
+        saveToDB('lastBackupDate', isoDate).catch(console.error);
+        setLastBackupDate(isoDate);
+      };
+
       const handleDownloadBackup = () => {
         const d = new Date();
-        const yyyy = d.getFullYear();
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
         const hh = String(d.getHours()).padStart(2, '0');
         const min = String(d.getMinutes()).padStart(2, '0');
-        const ss = String(d.getSeconds()).padStart(2, '0');
         
-        let studentName = '名前未設定';
-        if (profile && profile.name) studentName = profile.name;
-        else if (allData.high1 && allData.high1.profile && allData.high1.profile.name) studentName = allData.high1.profile.name;
-        
-        const fileName = `キャリア_${yyyy}${mm}${dd}_${hh}${min}${ss}.json`;
+        const fileName = `${mm}月${dd}日${hh}時${min}分・キャリア.json`;
         
         const dataStr = JSON.stringify(allData, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json' });
@@ -1226,8 +1234,6 @@
         const isoDate = new Date().toISOString();
         saveToDB('lastBackupDate', isoDate).catch(console.error);
         setLastBackupDate(isoDate);
-
-        setBackupStep(3);
       };
 
       const getDaysSinceBackup = () => {
@@ -1347,6 +1353,8 @@
           if (tabMenuRef.current && !tabMenuRef.current.contains(event.target)) setIsTabMenuOpen(false);
           if (colorMenuRef.current && !colorMenuRef.current.contains(event.target)) setIsColorPaletteOpen(false);
           if (addSheetMenuRef.current && !addSheetMenuRef.current.contains(event.target)) setIsAddSheetMenuOpen(false);
+          if (restoreMenuRef.current && !restoreMenuRef.current.contains(event.target)) setIsRestoreMenuOpen(false);
+          if (backupMenuRef.current && !backupMenuRef.current.contains(event.target)) setIsBackupMenuOpen(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -2148,12 +2156,28 @@ ${statsText || '特になし'}
                 <span className="text-xs font-bold text-gray-400 pl-1">{syncStatus}</span>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => jsonInputRef.current.click()} className="px-3 sm:px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-bold text-xs sm:text-sm flex items-center gap-1 shadow-sm border border-gray-300 active:scale-95 transition-transform">
-                  📂 復元
-                </button>
-                <button onClick={() => setBackupStep(1)} className="px-3 sm:px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-black text-xs sm:text-sm flex items-center gap-2 shadow-md active:scale-95 transition-transform">
-                  📚 授業終了・バックアップ
-                </button>
+                <div className="relative" ref={restoreMenuRef}>
+                  <button onClick={() => setIsRestoreMenuOpen(!isRestoreMenuOpen)} className="px-3 sm:px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-bold text-xs sm:text-sm flex items-center gap-1 shadow-sm border border-gray-300 active:scale-95 transition-transform">
+                    📂 復元
+                  </button>
+                  {isRestoreMenuOpen && (
+                    <div className="absolute top-full right-0 sm:left-0 mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-xl z-50 flex flex-col w-48 overflow-hidden">
+                      <button onClick={() => { jsonInputRef.current.click(); setIsRestoreMenuOpen(false); }} className="px-4 py-3 text-left font-bold text-gray-700 hover:bg-gray-50 border-b border-gray-100 transition-colors">ファイルで復元</button>
+                      <button onClick={() => { setImportText(''); setIsTextRestoreModalOpen(true); setIsRestoreMenuOpen(false); }} className="px-4 py-3 text-left font-bold text-gray-700 hover:bg-gray-50 transition-colors">文字コードで復元</button>
+                    </div>
+                  )}
+                </div>
+                <div className="relative" ref={backupMenuRef}>
+                  <button onClick={() => setIsBackupMenuOpen(!isBackupMenuOpen)} className="px-3 sm:px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-black text-xs sm:text-sm flex items-center gap-2 shadow-md active:scale-95 transition-transform">
+                    💾 バックアップ
+                  </button>
+                  {isBackupMenuOpen && (
+                    <div className="absolute top-full right-0 mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-xl z-50 flex flex-col w-48 overflow-hidden">
+                      <button onClick={() => { handleDownloadBackup(); setIsBackupMenuOpen(false); }} className="px-4 py-3 text-left font-bold text-gray-700 hover:bg-indigo-50 border-b border-gray-100 transition-colors">ファイルで保存</button>
+                      <button onClick={() => { handleTextBackup(); setIsBackupMenuOpen(false); }} className="px-4 py-3 text-left font-bold text-gray-700 hover:bg-indigo-50 transition-colors">文字コードで保存</button>
+                    </div>
+                  )}
+                </div>
                 <input type="file" accept=".json" ref={jsonInputRef} onChange={handleImportJSON} className="hidden" />
               </div>
             </div>
@@ -2278,7 +2302,6 @@ ${statsText || '特になし'}
                 </div>
 
                 <div className="flex items-center gap-2 sm:gap-3 z-20 flex-wrap justify-end">
-                  <button type="button" onClick={() => setIsDataManageModalOpen(true)} className="px-3 py-2 bg-white border border-indigo-300 text-indigo-600 rounded shadow-sm active:scale-95 transition-transform flex items-center gap-1 text-sm font-bold"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>データ引継</button>
                   <button type="button" onClick={handleUndo} disabled={history.length === 0} className={`px-3 py-2 rounded shadow-sm flex items-center gap-1 text-sm font-bold ${history.length === 0 ? 'bg-gray-200 text-gray-400' : 'bg-white border border-gray-300 text-gray-700 active:scale-95'}`} title="戻る"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>戻る</button>
                   <button type="button" onClick={() => setIsClearModalOpen(true)} className="px-3 py-2 bg-white border border-red-300 text-red-600 rounded shadow-sm active:scale-95 transition-transform flex items-center gap-1 text-sm font-bold"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>クリア</button>
                   <div className="relative" ref={colorMenuRef}><button type="button" onClick={() => setIsColorPaletteOpen(!isColorPaletteOpen)} className="flex items-center cursor-pointer bg-white/90 px-3 py-2 rounded shadow-sm border border-gray-300"><span className="text-sm font-bold text-gray-700 mr-2">🎨色</span><div className="w-5 h-5 rounded-full border border-gray-400" style={{backgroundColor: currentThemeColor}}></div></button>{isColorPaletteOpen && (<div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-2xl z-50 p-3 grid grid-cols-6 gap-2">{PALETTE_COLORS.map((color, i) => (<div key={i} onClick={() => handleThemeColorChange(color)} className="w-8 h-8 rounded cursor-pointer border border-gray-300 hover:scale-110 active:scale-95 transition-transform" style={{backgroundColor: color}} />))}</div>)}</div>
@@ -2410,17 +2433,23 @@ ${statsText || '特になし'}
               {promptCopiedModal.isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                   <div className="absolute inset-0 bg-black/50" onClick={() => setPromptCopiedModal({ isOpen: false, text: '' })}></div>
-                  <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg flex flex-col border-[4px] border-blue-400">
-                    <h2 className="text-xl font-black mb-4 text-blue-800">✅ テキストをコピーしました</h2>
-                    <p className="text-sm font-bold text-gray-600 mb-4 leading-relaxed">
-                      以下のテキストをコピーしました。「Geminiを開く」からAIアプリを開き、貼り付けてアドバイスをもらってください。その結果をアプリに書き写してください。
+                  <div className="relative bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg flex flex-col border-[6px] border-blue-400">
+                    <h2 className="text-2xl sm:text-3xl font-black mb-6 text-blue-800 text-center leading-snug">
+                      ✅ AI先生に聞きたいことが<br/>コピーされました！
+                    </h2>
+                    <p className="text-lg sm:text-xl font-bold text-gray-700 mb-8 bg-yellow-50 p-6 rounded-2xl border-2 border-yellow-300 text-center leading-relaxed">
+                      チャット欄にコピーした文章を<span className="text-red-500 font-black">貼り付けて</span>、アドバイスをもらってください。
                     </p>
-                    <a href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer" className="block w-full py-3 mb-4 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-center font-bold hover:bg-indigo-100 transition-colors shadow-sm">
-                      🔗 Geminiを開く
+                    <a href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer" className="block w-full py-5 mb-6 bg-blue-600 text-white rounded-2xl text-center font-black text-xl hover:bg-blue-700 transition-colors shadow-lg active:scale-95 flex flex-col items-center justify-center gap-1">
+                      <span className="text-sm font-bold opacity-80">ここをタップして</span>
+                      <span>🔗 AI先生（Gemini）を開く</span>
                     </a>
-                    <textarea readOnly value={promptCopiedModal.text} className="w-full h-40 p-3 border-2 border-gray-300 rounded-xl font-mono text-xs text-gray-700 outline-none bg-gray-50 mb-6 resize-none" />
-                    <div className="flex justify-end">
-                      <button type="button" onClick={() => setPromptCopiedModal({ isOpen: false, text: '' })} className="px-8 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full font-black shadow-md active:scale-95 transition-transform">閉じる</button>
+                    <div className="w-full relative group">
+                      <div className="text-xs font-bold text-gray-400 mb-1 ml-1">コピーされたテキスト:</div>
+                      <textarea readOnly value={promptCopiedModal.text} className="w-full h-24 p-3 border-2 border-gray-200 rounded-xl font-mono text-xs text-gray-400 outline-none bg-gray-50 mb-6 resize-none" />
+                    </div>
+                    <div className="flex justify-center mt-2">
+                      <button type="button" onClick={() => setPromptCopiedModal({ isOpen: false, text: '' })} className="px-10 py-4 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-full font-black text-lg shadow-sm active:scale-95 transition-transform">閉じる</button>
                     </div>
                   </div>
                 </div>
@@ -2692,58 +2721,107 @@ ${statsText || '特になし'}
                 </div>
               )}
 
-              {/* 授業終了・バックアップモーダル */}
-              {backupStep > 0 && (
+              {/* クリア確認モーダル */}
+              {isClearModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-black/50" onClick={() => setIsClearModalOpen(false)}></div>
+                  <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm flex flex-col items-center text-center border-4 border-red-400">
+                    <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-3xl mb-4">🧹</div>
+                    <h2 className="text-xl font-bold mb-2">内容をクリアしますか？</h2>
+                    <p className="text-sm text-gray-500 mb-6 font-bold">このページの入力内容がすべて消去されます。（戻るボタンで復元可能です）</p>
+                    <div className="flex gap-3 w-full">
+                      <button type="button" onClick={() => setIsClearModalOpen(false)} className="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-bold">キャンセル</button>
+                      <button type="button" onClick={executeClearTab} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold">クリアする</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 一括PDF作成モーダル */}
+              {isBulkExportModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                  <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => backupStep === 3 ? setBackupStep(0) : null}></div>
-                  <div className="relative bg-white rounded-3xl shadow-2xl p-8 w-full max-w-xl flex flex-col items-center border-[6px] border-indigo-500">
+                  <div className="absolute inset-0 bg-black/50" onClick={() => setIsBulkExportModalOpen(false)}></div>
+                  <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl flex flex-col border-[4px] border-indigo-400 max-h-[90vh]">
+                    <h2 className="text-xl font-bold mb-4 text-indigo-800">一括PDF出力</h2>
+                    <p className="text-sm text-gray-600 mb-4">出力したいページを並べ替えたり、不要なページのチェックを外したりできます。</p>
                     
-                    {backupStep === 1 && (
-                      <>
-                        <div className="w-24 h-24 bg-indigo-100 text-indigo-500 rounded-full flex items-center justify-center text-5xl mb-6">📚</div>
-                        <h2 className="text-3xl font-black mb-4 text-indigo-900 text-center">授業お疲れ様でした！</h2>
-                        <p className="text-lg font-bold text-gray-600 mb-8 text-center leading-relaxed">
-                          今日の入力内容をファイルとして<br/>iPad（またはパソコン）に保存します。
-                        </p>
-                        <div className="flex w-full gap-4">
-                          <button onClick={() => setBackupStep(0)} className="flex-1 py-4 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl font-black text-lg transition-transform active:scale-95">キャンセル</button>
-                          <button onClick={() => setBackupStep(2)} className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-lg shadow-lg transition-transform active:scale-95">次へ</button>
-                        </div>
-                      </>
-                    )}
+                    <div className="flex-1 overflow-y-auto mb-4 border-2 border-gray-200 rounded-xl p-2 bg-gray-50">
+                      {bulkExportSelection.map((tabId, index) => {
+                        const tabLabel = allTabs.find(t => t.id === tabId)?.label || tabId;
+                        return (
+                          <div 
+                            key={tabId} 
+                            className="flex items-center justify-between p-3 bg-white border border-gray-200 mb-2 rounded-lg shadow-sm"
+                            draggable
+                            onDragStart={(e) => handlePdfDragStart(e, tabId)}
+                            onDragOver={(e) => handlePdfDragOver(e, tabId)}
+                            onDrop={(e) => handlePdfDrop(e, tabId)}
+                            onDragEnd={handlePdfDragEnd}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="text-gray-400 cursor-grab text-xl font-bold">≡</span>
+                              <span className="font-bold text-gray-700">{index + 1}. {tabLabel}</span>
+                            </div>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setBulkExportSelection(prev => prev.filter(id => id !== tabId));
+                              }}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded font-black text-xl"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        );
+                      })}
+                      {bulkExportSelection.length === 0 && (
+                        <div className="p-4 text-center text-gray-500 font-bold">出力するページがありません</div>
+                      )}
+                    </div>
 
-                    {backupStep === 2 && (
-                      <>
-                        <div className="w-24 h-24 bg-green-100 text-green-500 rounded-full flex items-center justify-center text-5xl mb-6">💾</div>
-                        <h2 className="text-3xl font-black mb-4 text-green-800 text-center">ファイルをダウンロード</h2>
-                        <p className="text-base font-bold text-gray-600 mb-8 text-center leading-relaxed">
-                          下のボタンを押して、ファイルアプリの<br/>
-                          <span className="text-indigo-600 bg-indigo-50 px-2 py-1 rounded mx-1">キャリアノート</span>
-                          フォルダなどに保存してください。
-                        </p>
-                        <button onClick={handleDownloadBackup} className="w-full py-5 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-black text-2xl shadow-xl transition-transform active:scale-95 flex flex-col items-center justify-center gap-2 mb-4">
-                          <span className="flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0l-4-4m4 4V4" /></svg>
-                            バックアップファイルを保存
-                          </span>
-                        </button>
-                        <button onClick={() => setBackupStep(0)} className="py-2 px-6 text-gray-500 hover:text-gray-700 font-bold underline">やっぱりやめる</button>
-                      </>
-                    )}
+                    <div className="flex gap-3 justify-end mt-2 pt-4 border-t-2 border-gray-200">
+                      <button type="button" onClick={() => setIsBulkExportModalOpen(false)} className="px-5 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-full font-bold">キャンセル</button>
+                      <button 
+                        type="button" 
+                        onClick={handleBulkPDFExport} 
+                        disabled={bulkExportSelection.length === 0 || isExporting} 
+                        className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-bold disabled:opacity-50 flex items-center gap-2"
+                      >
+                        PDFを作成する
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-                    {backupStep === 3 && (
-                      <>
-                        <div className="w-24 h-24 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center text-5xl mb-6">🎉</div>
-                        <h2 className="text-3xl font-black mb-4 text-blue-800 text-center">保存完了！</h2>
-                        <p className="text-lg font-bold text-gray-600 mb-8 text-center leading-relaxed">
-                          データの保存が完了しました。<br/>
-                          ブラウザのタブを閉じて終了してください。
-                        </p>
-                        <button onClick={() => setBackupStep(0)} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xl shadow-lg transition-transform active:scale-95">
-                          元の画面に戻る
-                        </button>
-                      </>
-                    )}
+              {/* 文字コードで復元モーダル */}
+              {isTextRestoreModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-black/50" onClick={() => setIsTextRestoreModalOpen(false)}></div>
+                  <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg flex flex-col border-[4px] border-blue-400">
+                    <h2 className="text-xl font-bold mb-4 text-blue-800">文字コードで復元</h2>
+                    <p className="text-sm text-gray-600 mb-4">保存しておいた文字コードを下の枠に貼り付けてください。</p>
+                    <textarea value={importText} onChange={e => setImportText(e.target.value)} className="w-full h-48 p-3 border-2 border-gray-300 rounded-xl font-mono text-xs outline-none focus:border-blue-500 mb-4 resize-none" placeholder="文字コードをここに貼り付け..." />
+                    <div className="flex gap-3 justify-end">
+                      <button type="button" onClick={() => setIsTextRestoreModalOpen(false)} className="px-5 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-full font-bold">キャンセル</button>
+                      <button type="button" onClick={handleTextImport} disabled={!importText.trim()} className="px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-full font-bold disabled:opacity-50">復元する</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 文字コードで保存モーダル */}
+              {isTextBackupModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-black/50" onClick={() => setIsTextBackupModalOpen(false)}></div>
+                  <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg flex flex-col border-[4px] border-indigo-400">
+                    <h2 className="text-xl font-bold mb-4 text-indigo-800">文字コードで保存（バックアップ）</h2>
+                    <p className="text-sm text-gray-600 mb-4">下の文字コードをコピーして、メモ帳などに貼り付けて保存してください。</p>
+                    <textarea readOnly value={importText} className="w-full h-48 p-3 border-2 border-gray-200 rounded-xl font-mono text-xs text-gray-600 outline-none bg-gray-50 mb-4 resize-none" onClick={e => e.target.select()} />
+                    <div className="flex gap-3 justify-end">
+                      <button type="button" onClick={() => setIsTextBackupModalOpen(false)} className="px-5 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-full font-bold">閉じる</button>
+                      <button type="button" onClick={() => { copyToClipboard(importText); setSyncStatus('✅ コピー完了'); setTimeout(() => setSyncStatus('☁️ 最新'), 3000); setIsTextBackupModalOpen(false); }} className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full font-bold">コードをコピー</button>
+                    </div>
                   </div>
                 </div>
               )}
