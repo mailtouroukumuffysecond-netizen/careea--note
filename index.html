@@ -1056,7 +1056,9 @@
         high1: createInitialData(DEFAULT_COLORS.high1), high2: createInitialData(DEFAULT_COLORS.high2), high3: createInitialData(DEFAULT_COLORS.high3),
         skills: { tabLabel: '成長タイムライン', themeColor: '#c084fc', updatedAt: null, fontSizes: {} }
       });
-      const [activeTab, setActiveTab] = useState('cover');
+      const [activeTab, setActiveTab] = useState(() => {
+        return sessionStorage.getItem('carrier_note_active_tab') || 'cover';
+      });
       const [history, setHistory] = useState([]);
       const [isTabMenuOpen, setIsTabMenuOpen] = useState(false);
       const [isAddSheetMenuOpen, setIsAddSheetMenuOpen] = useState(false);
@@ -1110,6 +1112,10 @@
 
       const [promptCopiedModal, setPromptCopiedModal] = useState({ isOpen: false, text: '' });
       const [aiAuthModal, setAiAuthModal] = useState({ isOpen: false, pendingAction: null, password: '', error: '' });
+
+      useEffect(() => {
+        sessionStorage.setItem('carrier_note_active_tab', activeTab);
+      }, [activeTab]);
 
       const currentData = allData[activeTab] || {};
       const basicStats = currentData.basicStats || [];
@@ -1468,39 +1474,35 @@
         loadData();
       }, []);
 
-      useEffect(() => {
-        if (!isLoaded) return;
-        setSyncStatus('保存中...');
-        const timerId = setTimeout(async () => {
-          try {
-            await saveToDB('mainData', allData);
-            saveToLocalStorage('mainData', allData);
-            setSyncStatus('☁️ 保存完了');
-            setTimeout(() => setSyncStatus('☁️ 最新'), 3000);
-          } catch(e) {
-            console.error(e);
-            saveToLocalStorage('mainData', allData);
-            setSyncStatus('保存完了(代替)');
-            setTimeout(() => setSyncStatus('☁️ 最新'), 3000);
-          }
-        }, 1000);
-        return () => clearTimeout(timerId);
-      }, [allData, isLoaded]);
+      const [isModified, setIsModified] = useState(false);
+      const initialLoadRef = useRef(true);
 
       useEffect(() => {
-        const handleVisibilityChange = () => {
-          if (document.visibilityState === 'hidden') {
-            saveToLocalStorage('mainData', allData);
-            saveToDB('mainData', allData).catch(() => {});
-          }
-        };
-        window.addEventListener('visibilitychange', handleVisibilityChange);
-        window.addEventListener('pagehide', handleVisibilityChange);
-        return () => {
-          window.removeEventListener('visibilitychange', handleVisibilityChange);
-          window.removeEventListener('pagehide', handleVisibilityChange);
-        };
-      }, [allData]);
+        if (!isLoaded) return;
+        if (initialLoadRef.current) {
+          initialLoadRef.current = false;
+          return;
+        }
+        setIsModified(true);
+        setSyncStatus('⚠️ 未保存');
+      }, [allData, isLoaded]);
+
+      const handleSave = async () => {
+        setSyncStatus('保存中...');
+        try {
+          await saveToDB('mainData', allData);
+          saveToLocalStorage('mainData', allData);
+          setSyncStatus('☁️ 保存完了');
+          setIsModified(false);
+          setTimeout(() => setSyncStatus('☁️ 最新'), 3000);
+        } catch(e) {
+          console.error(e);
+          saveToLocalStorage('mainData', allData);
+          setSyncStatus('保存完了(代替)');
+          setIsModified(false);
+          setTimeout(() => setSyncStatus('☁️ 最新'), 3000);
+        }
+      };
 
       const getCurrentGrade = (label) => {
         if (!label) return 3;
@@ -2238,10 +2240,13 @@ ${statsText || '特になし'}
             {/* 新規追加: バックアップヘッダーバー */}
             <div className={`w-full flex items-center justify-between bg-white border-b-2 border-gray-200 p-2 mb-4 rounded-xl shadow-sm z-40 relative max-w-5xl ${isExporting ? 'hidden' : ''}`}>
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 pl-2">
-                <span className="text-sm font-bold text-gray-600 bg-gray-100 px-3 py-1 rounded-full">前回バックアップ: {getDaysSinceBackup()}</span>
-                <span className="text-xs font-bold text-gray-400 pl-1">{syncStatus}</span>
+                <span className="text-sm font-bold text-gray-600 bg-gray-100 px-3 py-1 rounded-full hidden sm:inline-block">前回バックアップ: {getDaysSinceBackup()}</span>
+                <span className={`text-xs font-bold pl-1 ${isModified ? 'text-red-500' : 'text-gray-400'}`}>{syncStatus}</span>
               </div>
               <div className="flex items-center gap-2">
+                <button type="button" onClick={handleSave} className={`px-3 sm:px-5 py-2 ${isModified ? 'bg-red-500 hover:bg-red-600 ring-2 ring-red-200 animate-pulse' : 'bg-blue-500 hover:bg-blue-600'} text-white rounded-lg font-black text-xs sm:text-sm flex items-center gap-2 shadow-md active:scale-95 transition-all`}>
+                  💾 {isModified ? '保存する！' : '保存済'}
+                </button>
                 <button type="button" onClick={() => window.location.reload()} className="px-3 sm:px-4 py-2 bg-white hover:bg-gray-100 text-gray-800 rounded-lg font-bold text-xs sm:text-sm flex items-center gap-1 shadow-sm border border-gray-300 active:scale-95 transition-transform" title="アプリを再読み込み">
                   🔄 更新
                 </button>
