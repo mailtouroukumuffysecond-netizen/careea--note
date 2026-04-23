@@ -188,6 +188,97 @@
 
     const APP_VERSION = "v3.0.3";
 
+    const AutoFitText = ({ text, minSize = 12, maxSize = 36, className = "" }) => {
+      const containerRef = useRef(null);
+      const textRef = useRef(null);
+      const [fontSize, setFontSize] = useState(maxSize);
+      const [isCalculated, setIsCalculated] = useState(false);
+
+      useEffect(() => {
+        if (!containerRef.current || !textRef.current) return;
+        if (!text) {
+          setIsCalculated(true);
+          return;
+        }
+        
+        let low = minSize;
+        let high = maxSize;
+        let best = minSize;
+
+        while (low <= high) {
+          const mid = Math.floor((low + high) / 2);
+          textRef.current.style.fontSize = `${mid}px`;
+          
+          if (textRef.current.scrollHeight <= containerRef.current.clientHeight && 
+              textRef.current.scrollWidth <= containerRef.current.clientWidth) {
+            best = mid;
+            low = mid + 1;
+          } else {
+            high = mid - 1;
+          }
+        }
+
+        textRef.current.style.fontSize = `${best}px`;
+        setFontSize(best);
+        setIsCalculated(true);
+      }, [text, maxSize, minSize]);
+
+      return (
+        <div ref={containerRef} className={`w-full h-full overflow-hidden relative ${className}`} style={{ opacity: isCalculated ? 1 : 0 }}>
+          <div ref={textRef} style={{ fontSize: `${fontSize}px`, width: '100%', height: 'max-content', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: '1.4', position: 'absolute', top: 0, left: 0 }}>
+            {text}
+          </div>
+        </div>
+      );
+    };
+
+    const AutoFitList = ({ items, minSize = 12, maxSize = 36, className = "" }) => {
+      const containerRef = useRef(null);
+      const listRef = useRef(null);
+      const [fontSize, setFontSize] = useState(maxSize);
+      const [isCalculated, setIsCalculated] = useState(false);
+
+      useEffect(() => {
+        if (!containerRef.current || !listRef.current || !items || items.length === 0) {
+          setIsCalculated(true);
+          return;
+        }
+        
+        let low = minSize;
+        let high = maxSize;
+        let best = minSize;
+
+        while (low <= high) {
+          const mid = Math.floor((low + high) / 2);
+          listRef.current.style.fontSize = `${mid}px`;
+          
+          if (listRef.current.scrollHeight <= containerRef.current.clientHeight) {
+            best = mid;
+            low = mid + 1;
+          } else {
+            high = mid - 1;
+          }
+        }
+
+        listRef.current.style.fontSize = `${best}px`;
+        setFontSize(best);
+        setIsCalculated(true);
+      }, [items, maxSize, minSize]);
+
+      return (
+        <div ref={containerRef} className={`w-full h-full overflow-hidden relative ${className}`} style={{ opacity: isCalculated ? 1 : 0 }}>
+          <div ref={listRef} style={{ fontSize: `${fontSize}px`, width: '100%', height: 'max-content', display: 'flex', flexDirection: 'column', gap: '0.4em', position: 'absolute', top: 0, left: 0 }}>
+            {items.map(item => (
+              <div key={item.id} className="flex">
+                <span className="mr-2 font-bold text-gray-500 select-none">・</span>
+                <div className="flex-1 font-medium text-gray-800 whitespace-pre-wrap break-words leading-snug">{item.text}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    };
+
     const compressImageTo100KB = (img) => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -247,41 +338,55 @@
     );
 
     const FontSizeToggle = ({ value, onChange }) => {
-      const sizes = ['small', 'medium', 'large', 'xlarge'];
-      const labels = { small: '小', medium: '中', large: '大', xlarge: '特大' };
-      const nextSize = () => { const idx = sizes.indexOf(value || 'medium'); onChange(sizes[(idx + 1) % sizes.length]); };
+      const sizes = ['medium', 'large', 'xlarge'];
+      const labels = { medium: '中', large: '大', xlarge: '特大' };
+      const nextSize = () => { 
+        const currentIdx = sizes.indexOf(value);
+        if (currentIdx === -1) {
+          onChange(sizes[0]);
+        } else {
+          onChange(sizes[(currentIdx + 1) % sizes.length]); 
+        }
+      };
+      const displayLabel = labels[value] || labels['medium'];
       return (
         <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); nextSize(); }} className="px-2 py-1 text-xs font-black text-gray-700 bg-white hover:bg-gray-100 border-2 border-gray-300 rounded shadow-sm shrink-0 whitespace-nowrap z-50 flex items-center gap-1 active:scale-95 transition-transform" title="クリックで文字サイズを変更">
-          <span className="text-gray-400">文字:</span>{labels[value || 'medium']}
+          <span className="text-gray-400">文字:</span>{displayLabel}
         </button>
       );
     };
 
-    const TargetListField = ({ field, num, title, bgColor, items, onItemsChange, onClickItem, isExporting, actionButton, fontSizeMode, onFontSizeChange }) => {
+    const TargetListField = ({ field, num, title, bgColor, items, onItemsChange, onClickItem, isExporting, actionButton, fontSizeMode, onFontSizeChange, heightClass }) => {
       const fontSizeClass = FONT_SIZES[fontSizeMode || 'medium'];
       const handleAddItem = () => onItemsChange([...items, { id: generateId(), text: '' }]);
       const handleRemoveItem = (id) => onItemsChange(items.filter(item => item.id !== id));
       return (
-        <div className="relative pt-4 w-full mt-4 sm:mt-6 group">
+        <div className="relative pt-4 w-full mt-4 sm:mt-6 group flex-1">
           {!isExporting && (<div className="absolute -top-1 right-2 z-20 opacity-40 hover:opacity-100 focus-within:opacity-100 transition-opacity"><FontSizeToggle value={fontSizeMode} onChange={(v) => onFontSizeChange(field, v)} /></div>)}
           <div className={`absolute top-0 left-4 sm:left-8 px-5 sm:px-8 ${bgColor} border-[3px] border-gray-800 rounded-full ${isExporting ? 'pt-0 pb-2' : 'py-1'} z-10 font-bold text-gray-900 shadow-sm flex items-center justify-start text-lg sm:text-xl tracking-widest`}>{num} {title}</div>
-          <div className={`border-[3px] border-gray-800 rounded-3xl p-4 sm:p-6 pt-10 sm:pt-12 pb-14 bg-white shadow-sm relative z-0 flex flex-col gap-3 min-h-[10rem]`}>
-            {items.map((item) => (
-              <div key={item.id} className="relative flex items-center group/item">
-                {!isExporting && items.length > 1 && (<button type="button" onClick={() => handleRemoveItem(item.id)} className="absolute -left-3 top-1/2 -mt-3 bg-white border-2 border-red-400 text-red-500 hover:bg-red-50 w-6 h-6 rounded-full flex items-center justify-center font-bold opacity-0 group-hover/item:opacity-100 z-20 transition-opacity shadow-sm leading-none pb-0.5">&times;</button>)}
-                <div className="flex-1 border-b-2 border-dashed border-gray-300 pb-1 pl-2">
-                  {isExporting ? (<div className={`w-full whitespace-pre-wrap font-medium text-gray-800 ${fontSizeClass}`}><span className="mr-2 font-bold text-gray-500">・</span>{item.text}</div>) : (
-                    <div className="flex">
-                      <span className="mr-2 font-bold text-gray-400 select-none">・</span>
-                      <div onClick={() => onClickItem(item.text, (newText) => { onItemsChange(items.map(i => i.id === item.id ? { ...i, text: newText } : i)); })} className={`flex-1 cursor-pointer hover:bg-gray-50/50 bg-transparent font-medium text-gray-800 whitespace-pre-wrap min-h-[1.5rem] flex items-center ${fontSizeClass}`}>
-                        {item.text || <span className="text-gray-400">クリックして入力...</span>}
+          <div className={`border-[3px] border-gray-800 rounded-3xl p-4 sm:p-6 pt-10 sm:pt-12 pb-14 bg-white shadow-sm relative z-0 flex flex-col gap-3 min-h-[10rem] ${heightClass || 'h-40 sm:h-48'}`}>
+            {isExporting ? (
+              <div className="flex-1 relative w-full h-full">
+                <AutoFitList items={items} maxSize={32} />
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto flex flex-col gap-3">
+                {items.map((item) => (
+                  <div key={item.id} className="relative flex items-center group/item">
+                    {!isExporting && items.length > 1 && (<button type="button" onClick={() => handleRemoveItem(item.id)} className="absolute -left-3 top-1/2 -mt-3 bg-white border-2 border-red-400 text-red-500 hover:bg-red-50 w-6 h-6 rounded-full flex items-center justify-center font-bold opacity-0 group-hover/item:opacity-100 z-20 transition-opacity shadow-sm leading-none pb-0.5">&times;</button>)}
+                    <div className="flex-1 border-b-2 border-dashed border-gray-300 pb-1 pl-2">
+                      <div className="flex">
+                        <span className="mr-2 font-bold text-gray-400 select-none">・</span>
+                        <div onClick={() => onClickItem(item.text, (newText) => { onItemsChange(items.map(i => i.id === item.id ? { ...i, text: newText } : i)); })} className={`flex-1 cursor-pointer hover:bg-gray-50/50 bg-transparent font-medium text-gray-800 whitespace-pre-wrap min-h-[1.5rem] flex items-center ${fontSizeClass}`}>
+                          {item.text || <span className="text-gray-400">クリックして入力...</span>}
+                        </div>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ))}
+                {!isExporting && (<button type="button" onClick={handleAddItem} className="w-full py-2 bg-blue-50 hover:bg-blue-100 border-2 border-dashed border-blue-300 text-blue-500 rounded-xl font-bold flex items-center justify-center gap-1 transition-colors mt-2"><span className="text-xl leading-none">＋</span> 枠を追加</button>)}
               </div>
-            ))}
-            {!isExporting && (<button type="button" onClick={handleAddItem} className="w-full py-2 bg-blue-50 hover:bg-blue-100 border-2 border-dashed border-blue-300 text-blue-500 rounded-xl font-bold flex items-center justify-center gap-1 transition-colors mt-2"><span className="text-xl leading-none">＋</span> 枠を追加</button>)}
+            )}
             {actionButton && !isExporting && (<div className="absolute bottom-3 right-3 sm:right-6 z-20">{actionButton}</div>)}
           </div>
         </div>
@@ -291,11 +396,13 @@
     const TargetField = ({ field, num, title, bgColor, value, onClick, isExporting, actionButton, fontSizeMode, onFontSizeChange, heightClass }) => {
       const fontSizeClass = FONT_SIZES[fontSizeMode || 'medium'];
       return (
-        <div className="relative pt-4 w-full mt-4 sm:mt-6 group">
+        <div className="relative pt-4 w-full mt-4 sm:mt-6 group flex-1">
           {!isExporting && (<div className="absolute -top-1 right-2 z-20 opacity-40 hover:opacity-100 focus-within:opacity-100 transition-opacity"><FontSizeToggle value={fontSizeMode} onChange={(v) => onFontSizeChange(field, v)} /></div>)}
           <div className={`absolute top-0 left-4 sm:left-8 px-5 sm:px-8 ${bgColor} border-[3px] border-gray-800 rounded-full ${isExporting ? 'pt-0 pb-2' : 'py-1'} z-10 font-bold text-gray-900 shadow-sm flex items-center justify-start text-lg sm:text-xl tracking-widest`}>{num} {title}</div>
           <div className={`border-[3px] border-gray-800 rounded-3xl p-4 sm:p-6 pt-10 sm:pt-12 bg-white shadow-sm relative z-0 flex flex-col ${heightClass || 'h-48 sm:h-56'}`}>
-            {isExporting ? (<div className={`w-full h-full whitespace-pre-wrap overflow-hidden font-medium leading-relaxed text-gray-800 ${fontSizeClass}`}>{value}</div>) : (
+            {isExporting ? (
+              <AutoFitText text={value} maxSize={32} className="text-gray-800 font-medium" />
+            ) : (
               <div onClick={onClick} className={`w-full h-full overflow-y-auto cursor-pointer hover:bg-gray-50/50 bg-transparent font-medium leading-relaxed text-gray-800 whitespace-pre-wrap ${fontSizeClass}`}>
                 {value || <span className="text-gray-400">クリックして入力...</span>}
               </div>
@@ -505,6 +612,7 @@
             <TargetField 
               field="q2" num="②" title="先生からのアドバイス" bgColor="bg-red-200" 
               value={data.q2} onClick={() => openTextInput('先生からのアドバイス', data.q2, v => onUpdate('q2', v), true)} isExporting={isExporting} fontSizeMode={getFontSize('q2')} onFontSizeChange={onFontSizeChange}
+              heightClass="h-40 sm:h-48"
               actionButton={
                 <AiActionPanel
                   onGenerate={handleCopyAdvicePrompt}
@@ -527,6 +635,7 @@
               isExporting={isExporting} 
               fontSizeMode={getFontSize('q3')} 
               onFontSizeChange={onFontSizeChange} 
+              heightClass="h-48 sm:h-56"
             />
             <TargetField 
               field="q4" num="④" title="目標達成に向けてがんばること" bgColor="bg-yellow-400" 
@@ -602,7 +711,7 @@
               </div>
             </div>
 
-            <TargetField field="activities" num="①" title="実習中の活動" bgColor="bg-white" value={data.activities} onClick={() => openTextInput('実習中の活動', data.activities, v => onUpdate('activities', v), true)} isExporting={isExporting} fontSizeMode={getFontSize('activities')} onFontSizeChange={onFontSizeChange} heightClass="h-32 sm:h-48" />
+            <TargetField field="activities" num="①" title="実習中の活動" bgColor="bg-white" value={data.activities} onClick={() => openTextInput('実習中の活動', data.activities, v => onUpdate('activities', v), true)} isExporting={isExporting} fontSizeMode={getFontSize('activities')} onFontSizeChange={onFontSizeChange} heightClass="h-40 sm:h-48" />
             
             <div className="relative pt-4 w-full mt-4 sm:mt-6 group">
               {!isExporting && (
@@ -613,7 +722,7 @@
               <div className={`absolute top-0 left-4 sm:left-8 px-5 sm:px-8 bg-blue-200 border-[3px] border-gray-800 rounded-full ${isExporting ? 'pt-0 pb-2' : 'py-1'} z-10 font-bold text-gray-900 shadow-sm flex items-center justify-start text-lg sm:text-xl tracking-widest`}>
                 ② 目標と評価
               </div>
-              <div className={`border-[3px] border-gray-800 rounded-3xl p-4 sm:p-6 pt-10 sm:pt-12 bg-white shadow-sm relative z-0 flex flex-col gap-4 min-h-[10rem]`}>
+              <div className={`border-[3px] border-gray-800 rounded-3xl p-4 sm:p-6 pt-10 sm:pt-12 bg-white shadow-sm relative z-0 flex flex-col gap-4 min-h-[10rem] h-auto`}>
                 {(data.goals || []).map((goal, index) => {
                   const evalColor = getGoalEvaluationColor(goal.evaluation || 0);
                   return (
@@ -623,7 +732,9 @@
                     )}
                     <div className="flex-1 pr-0 sm:pr-4 border-r-0 sm:border-r-2 border-gray-300 mb-4 sm:mb-0 flex flex-col">
                       {isExporting ? (
-                         <div className={`w-full whitespace-pre-wrap font-medium text-gray-800 ${FONT_SIZES[getFontSize('goal')]}`}>{goal.text}</div>
+                         <div className="flex-1 relative w-full h-full min-h-[4rem]">
+                           <AutoFitText text={goal.text} maxSize={28} className="text-gray-800 font-medium" />
+                         </div>
                       ) : (
                          <div
                            onClick={() => openTextInput('目標', goal.text, v => handleGoalTextChange(index, v), true)}
